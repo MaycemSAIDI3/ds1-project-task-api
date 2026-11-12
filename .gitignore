@@ -1,0 +1,16 @@
+# Houni npm y7ot el packages. Nraj3ouhom b npm install,
+# donc ma nesta7a9ouch naba3thou el dossier hedha lel GitHub.
+node_modules/
+
+# Hedhom fihom el configuration w ynajmou ykounou fihom
+# passwords wala JWT secret. Lezem yab9aw ken fel ordinateur.
+.env
+.env.*
+
+# Hedha exemple mta3 configuration bla secrets.
+# Nkhalliwh yetba3ath lel GitHub bech yfassar chnowa nesta7a9ou.
+!.env.example
+
+# El logs ynajmou ykounou fihom ma3loumet mel serveur.
+# Ma nesta7a9ouch nsajlouhom fel Git.
+*.log 
