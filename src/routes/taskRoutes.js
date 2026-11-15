@@ -8,5 +8,7 @@ router.use(authenticate, controller.loadProject);
 router.post('/', controller.createTask);
 router.get('/', controller.listTasks);
 router.get('/:taskId', controller.loadTask, controller.getTask);
+router.patch('/:taskId', controller.loadTask, controller.updateTask);
+router.delete('/:taskId', controller.loadTask, controller.deleteTask);
 
 module.exports = router;

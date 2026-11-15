@@ -63,4 +63,22 @@ async function loadTask(req, res, next) {
 
 function getTask(req, res) { return res.status(200).json({ task: req.task }); }
 
-module.exports = { loadProject, loadTask, createTask, listTasks, getTask, validateTask, taskError };
+// Nbaddlou ken champs masmou7in, bla ma nna9lou el tache.
+async function updateTask(req, res, next) {
+  const invalid = validateTask(req.body);
+  if (invalid) return res.status(400).json({ message: invalid });
+  try {
+    for (const key of Object.keys(req.body)) req.task[key] = req.body[key];
+    await req.task.save();
+    return res.status(200).json({ message: 'Task updated successfully.', task: req.task });
+  } catch (error) { return taskError(error, res, next); }
+}
+
+async function deleteTask(req, res, next) {
+  try {
+    await req.task.deleteOne();
+    return res.status(200).json({ message: 'Task deleted successfully.' });
+  } catch (error) { return next(error); }
+}
+
+module.exports = { loadProject, loadTask, createTask, listTasks, getTask, updateTask, deleteTask, validateTask, taskError };
