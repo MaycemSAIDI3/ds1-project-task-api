@@ -1,15 +1,17 @@
 {
   "name": "ds-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/*.test.js",
     "manager": "node scripts/promote-manager.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Maycem Saidi",
   "license": "ISC",
-  "description": "",
+  "description": "API REST de gestion de projets et de taches — DS1 ISIDS",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.10",
