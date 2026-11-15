@@ -1,6 +1,7 @@
 const express = require('express');
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
+const taskRoutes = require('./routes/taskRoutes');
 
 // Nasna3ou el application Express.
 const app = express();
@@ -19,6 +20,8 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 // Norbtou el routes mta3 projets bel adresse /api/projects.
 app.use('/api/projects', projectRoutes);
+// El taches dima marboutin b projet mawjoud.
+app.use('/api/projects/:projectId/tasks', taskRoutes);
 
 // Nraj3ou 404 ki el route ma famech.
 app.use((req, res) => {
