@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const Project = require('../models/Project');
+const User = require('../models/User');
 
 // Nthabtou permission el projet 9bal ay operation 3al taches.
 async function loadProject(req, res, next) {
@@ -19,8 +20,8 @@ async function loadProject(req, res, next) {
 // Na9blou ken champs el tache, bla project wala createdAt.
 function validateTask(body, creating = false) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return 'A JSON object is required.';
-  const allowed = ['title', 'description', 'status', 'deadline'];
-  if (!Object.keys(body).length || Object.keys(body).some(key => !allowed.includes(key))) return 'Provide only title, description, status, or deadline.';
+  const allowed = ['title', 'description', 'status', 'deadline', 'assignedTo'];
+  if (!Object.keys(body).length || Object.keys(body).some(key => !allowed.includes(key))) return 'Provide only title, description, status, deadline, or assignedTo.';
   if ((creating || Object.hasOwn(body, 'title')) && (typeof body.title !== 'string' || !body.title.trim())) return 'Title must be a non-empty string.';
   if (Object.hasOwn(body, 'description') && typeof body.description !== 'string') return 'Description must be a string.';
   if (Object.hasOwn(body, 'status') && !['todo', 'doing', 'done'].includes(body.status)) return 'Status must be todo, doing, or done.';
@@ -38,15 +39,28 @@ async function createTask(req, res, next) {
   const invalid = validateTask(req.body, true);
   if (invalid) return res.status(400).json({ message: invalid });
   try {
-    const { title, description, status, deadline } = req.body;
-    const task = await Task.create({ title, description, status, deadline, project: req.project._id });
+    if (!(await validateAssignment(req, res))) return;
+    const { title, description, status, deadline, assignedTo } = req.body;
+    const task = await Task.create({ title, description, status, deadline, assignedTo, project: req.project._id });
     return res.status(201).json({ message: 'Task created successfully.', task });
   } catch (error) { return taskError(error, res, next); }
 }
 
 async function listTasks(req, res, next) {
+  const { search = '', sortBy = 'createdAt', order = 'desc', status } = req.query;
+  if (typeof search !== 'string' || search.length > 200) return res.status(400).json({ message: 'Search must be a string of at most 200 characters.' });
+  if (!['title', 'status', 'deadline', 'createdAt'].includes(sortBy) || !['asc', 'desc'].includes(order)) return res.status(400).json({ message: 'Invalid task sort field or order.' });
+  if (status !== undefined && !['todo', 'doing', 'done'].includes(status)) return res.status(400).json({ message: 'Invalid task status filter.' });
+  const filter = { project: req.project._id };
+  if (status !== undefined) filter.status = status;
+  if (search.trim()) {
+    // El recherche texte ma tetfassarch k regex mel user.
+    const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    filter.$or = [{ title: { $regex: escaped, $options: 'i' } }, { description: { $regex: escaped, $options: 'i' } }];
+  }
   try {
-    const tasks = await Task.find({ project: req.project._id }).sort({ createdAt: -1, _id: -1 });
+    const direction = order === 'asc' ? 1 : -1;
+    const tasks = await Task.find(filter).sort({ [sortBy]: direction, _id: direction });
     return res.status(200).json({ count: tasks.length, tasks });
   } catch (error) { return next(error); }
 }
@@ -68,10 +82,31 @@ async function updateTask(req, res, next) {
   const invalid = validateTask(req.body);
   if (invalid) return res.status(400).json({ message: invalid });
   try {
+    if (!(await validateAssignment(req, res))) return;
     for (const key of Object.keys(req.body)) req.task[key] = req.body[key];
     await req.task.save();
     return res.status(200).json({ message: 'Task updated successfully.', task: req.task });
   } catch (error) { return taskError(error, res, next); }
+}
+
+// Ken el manager ynajjem yaffecti wala yna77i affectation.
+async function validateAssignment(req, res) {
+  if (!Object.hasOwn(req.body, 'assignedTo')) return true;
+  if (req.user.role !== 'manager') {
+    res.status(403).json({ message: 'Only a manager can assign tasks.' });
+    return false;
+  }
+  const id = req.body.assignedTo;
+  if (id === null) return true;
+  if (typeof id !== 'string' || !/^[a-fA-F0-9]{24}$/.test(id)) {
+    res.status(400).json({ message: 'Assigned user ID must be valid or null.' });
+    return false;
+  }
+  if (!(await User.exists({ _id: id }))) {
+    res.status(404).json({ message: 'Assigned user not found.' });
+    return false;
+  }
+  return true;
 }
 
 async function deleteTask(req, res, next) {
