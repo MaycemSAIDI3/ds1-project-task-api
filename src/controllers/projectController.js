@@ -54,4 +54,75 @@ async function createProject(req, res, next) {
   }
 }
 
-module.exports = { createProject };
+// Na9raw el projets selon el role, recherche w tri.
+async function listProjects(req, res, next) {
+  const {
+    search = '',
+    sortBy = 'createdAt',
+    order = 'desc',
+  } = req.query;
+
+  // Ma na9blouch tableaux wala objets fel recherche.
+  if (typeof search !== 'string' || search.length > 200) {
+    return res.status(400).json({
+      message: 'Search must be a string of at most 200 characters.',
+    });
+  }
+
+  // Na9blou ken el champs hedhouma lel tri.
+  const allowedSortFields = ['name', 'status', 'createdAt'];
+
+  if (!allowedSortFields.includes(sortBy)) {
+    return res.status(400).json({
+      message: 'Sort field must be name, status, or createdAt.',
+    });
+  }
+
+  if (!['asc', 'desc'].includes(order)) {
+    return res.status(400).json({
+      message: 'Order must be asc or desc.',
+    });
+  }
+
+  // El manager ychouf el kol.
+  // El user ychouf ken el projets elli howa sa7ebhom.
+  const filter =
+    req.user.role === 'manager'
+      ? {}
+      : { owner: req.user._id };
+
+  const searchText = search.trim();
+
+  if (searchText) {
+    // N7awlou caracteres regex l texte 3adi.
+    // Hakka el recherche tet3amel m3a texte el user kif ma houwa.
+    const escapedSearch = searchText.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&'
+    );
+
+    filter.$or = [
+      { name: { $regex: escapedSearch, $options: 'i' } },
+      { description: { $regex: escapedSearch, $options: 'i' } },
+    ];
+  }
+
+  try {
+    const direction = order === 'asc' ? 1 : -1;
+
+    // Nzidou _id bech el ordre yab9a stable ki valeurs kifkif.
+    const projects = await Project.find(filter).sort({
+      [sortBy]: direction,
+      _id: direction,
+    });
+
+    return res.status(200).json({
+      count: projects.length,
+      projects,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { createProject, listProjects };

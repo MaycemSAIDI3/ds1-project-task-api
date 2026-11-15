@@ -1,13 +1,19 @@
 const express = require('express');
 const authenticate = require('../middleware/authenticate');
-const { createProject } = require('../controllers/projectController');
+const {
+  createProject,
+  listProjects,
+} = require('../controllers/projectController');
 
 const router = express.Router();
 
-// Kol route fel router hedha tetlob utilisateur connecte.
+// El routes el kol tetlob utilisateur connecte.
 router.use(authenticate);
 
-// User w manager ynajmou yasna3ou projet.
+// Creation projet lel user w manager.
 router.post('/', createProject);
+
+// Liste projets m3a recherche w tri.
+router.get('/', listProjects);
 
 module.exports = router;
