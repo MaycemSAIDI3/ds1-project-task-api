@@ -2,6 +2,17 @@ const Task = require('../models/Task');
 const Project = require('../models/Project');
 const User = require('../models/User');
 
+// Date.parse ynajjem y9alleb 31 fevrier l mars, donc nthabtou mel nhar zeda.
+function validDeadline(value) {
+  if (value === null) return true;
+  if (typeof value !== 'string') return false;
+  const isoFormat = /^\d{4}-\d{2}-\d{2}(?:T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+  if (!isoFormat.test(value) || !Number.isFinite(Date.parse(value))) return false;
+  const day = value.slice(0, 10);
+  const calendarDate = new Date(day + 'T00:00:00.000Z');
+  return Number.isFinite(calendarDate.getTime()) && calendarDate.toISOString().slice(0, 10) === day;
+}
+
 // Nthabtou permission el projet 9bal ay operation 3al taches.
 async function loadProject(req, res, next) {
   const { projectId } = req.params;
@@ -25,7 +36,7 @@ function validateTask(body, creating = false) {
   if ((creating || Object.hasOwn(body, 'title')) && (typeof body.title !== 'string' || !body.title.trim())) return 'Title must be a non-empty string.';
   if (Object.hasOwn(body, 'description') && typeof body.description !== 'string') return 'Description must be a string.';
   if (Object.hasOwn(body, 'status') && !['todo', 'doing', 'done'].includes(body.status)) return 'Status must be todo, doing, or done.';
-  if (Object.hasOwn(body, 'deadline') && body.deadline !== null && (typeof body.deadline !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(body.deadline) || !Number.isFinite(Date.parse(body.deadline)))) return 'Deadline must be a valid ISO date string or null.';
+  if (Object.hasOwn(body, 'deadline') && !validDeadline(body.deadline)) return 'Deadline must be a valid ISO date string or null.';
   return null;
 }
 

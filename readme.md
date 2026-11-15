@@ -1,179 +1,249 @@
 # API REST de gestion de projets et de tâches
 
-Mini-projet DS1 — ISIDS, réalisé individuellement par **Maycem Saidi**.
+## DS1 — Mini-projet ISIDS
 
-Express.js, MongoDB/Mongoose, bcryptjs et JWT. Commentaires du code en derja tunisienne écrite en alphabet latin.
+| Informations | |
+|---|---|
+| Auteure | **Maycem Saidi** |
+| Réalisation | **Travail individuel (monôme)** |
+| Technologies | Node.js, Express.js, MongoDB, Mongoose |
+| Authentification | JWT et bcryptjs |
 
-## Interface de démonstration locale
+## Présentation
 
-Après le démarrage du serveur, ouvrez **http://localhost:3000/** dans votre navigateur. L'interface permet de s'inscrire, se connecter, gérer les projets et les tâches, rechercher et trier. Sélectionnez une carte de projet pour afficher ses tâches. Le panneau « Réponse de l'API » affiche les réponses JSON en masquant les tokens.
+Cette API permet à des utilisateurs authentifiés de gérer des projets et leurs tâches. Elle distingue deux rôles : `user` et `manager`.
 
-Le token reste uniquement en mémoire : actualiser la page demande une nouvelle connexion. L'interface fonctionne sans bibliothèque externe ni connexion internet. Elle utilise la même API et le même MongoDB local ; aucune publication sur internet n'est nécessaire. Les utilisateurs managers disposent d'un champ d'affectation par identifiant utilisateur. La promotion manager reste une commande locale, décrite ci-dessous.
+Le projet comprend la gestion des utilisateurs, les opérations de création, consultation, modification et suppression des projets et tâches, ainsi que la recherche et le tri. Les commentaires du code sont en derja tunisienne écrite en alphabet latin.
 
-## Installation
+## Installation et lancement
 
-Prérequis : Node.js 22 ou supérieur, npm et MongoDB Community Server démarré. Vérification finale réalisée avec Node.js 26.
+### Prérequis
+
+- Node.js 22 ou supérieur et npm.
+- MongoDB démarré et accessible.
+- Git pour cloner le dépôt.
+
+Le projet a été testé sur Windows avec Node.js 26 et MongoDB Community Server 9.0.4.
+
+### Configuration
 
 ```powershell
 git clone https://github.com/MaycemSAIDI3/ds1-project-task-api.git
 cd ds1-project-task-api
 npm.cmd ci
 Copy-Item .env.example .env
+```
+
+Générer un secret JWT :
+
+```powershell
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-Si vous avez déjà le projet, utilisez son dossier actuel. Ne remplacez pas un fichier .env déjà configuré. Copiez la chaîne aléatoire générée après JWT_SECRET= dans .env :
+Dans `.env`, renseigner les valeurs suivantes. Remplacer la valeur de `JWT_SECRET` par la chaîne générée.
 
 ```dotenv
 NODE_ENV=development
 PORT=3000
 MONGODB_URI=mongodb://127.0.0.1:27017/ds_backend
-JWT_SECRET=REMPLACER_PAR_VOTRE_SECRET_ALEATOIRE
+JWT_SECRET=VOTRE_SECRET_ALEATOIRE
 JWT_EXPIRES_IN=1h
 ```
 
-Ne conservez pas le texte de remplacement comme secret. Ne publiez jamais .env.
+Le fichier `.env` reste local et n'est pas versionné. `.env.example` contient uniquement les paramètres nécessaires, sans secret.
 
-Si MongoDB est arrêté, exécutez dans PowerShell en administrateur :
+Si MongoDB est installé comme service Windows et qu'il est arrêté, exécuter dans PowerShell en administrateur :
 
 ```powershell
 Start-Service MongoDB
 ```
 
-Dans le terminal du projet :
+Démarrer l'application :
 
 ```powershell
 npm.cmd start
 ```
 
-Le serveur attend MongoDB avant de démarrer. Vérifiez http://localhost:3000/api/health. Cette route de diagnostic est un ajout facultatif.
+Le serveur écoute sur `http://localhost:3000` après la connexion à MongoDB. La route `GET /api/health` permet de vérifier qu'il répond.
 
-Pour recharger automatiquement après les modifications :
+Pendant le développement, `npm.cmd run dev` recharge le serveur après les modifications.
 
-```powershell
-npm.cmd run dev
-```
+## Modèles
 
-## Permissions
+| Modèle | Principaux champs |
+|---|---|
+| User | name, login, password haché, role, createdAt |
+| Project | name, description, owner, status, createdAt |
+| Task | title, description, status, deadline, project, assignedTo, createdAt |
 
-Toutes les routes de projets et tâches demandent l'en-tête `Authorization: Bearer TOKEN`.
+- Le login est unique et normalisé en minuscules.
+- Le mot de passe comporte au moins 8 caractères et au maximum 72 octets UTF-8. Il est haché avec bcryptjs avant l'enregistrement.
+- Les statuts de projet sont `in_progress`, `completed` et `paused`.
+- Les statuts de tâche sont `todo`, `doing` et `done`.
+- La date limite est facultative : date ISO valide ou `null`.
+- Le propriétaire du projet et le projet associé à une tâche ne sont pas modifiables.
 
-- L'inscription impose le rôle user, même si un autre rôle est envoyé.
-- Un user consulte, modifie et supprime ses propres projets et leurs tâches.
-- Un manager accède à tous les projets et à leurs tâches.
-- Les deux rôles peuvent créer des projets et créer des tâches dans les projets accessibles.
-- Seul un manager peut renseigner, changer ou retirer assignedTo, à la création comme à la modification.
-- L'utilisateur assigné doit exister. La valeur null retire l'affectation.
-- L'affectation seule n'accorde pas l'accès à un projet privé. Ce choix de permissions complète l'énoncé, qui ne détaille pas cet accès.
-- Un projet absent ou inaccessible renvoie 404, pour ne pas révéler les projets des autres utilisateurs.
-- Supprimer un projet supprime ses tâches. Ces suppressions sont successives, sans transaction : une panne entre les opérations peut laisser un projet sans ses tâches.
+## Rôles et permissions
 
-### Compte manager
+| Action | user | manager |
+|---|---|---|
+| Créer un projet | Oui | Oui |
+| Voir tous les projets | Non | Oui |
+| Consulter, modifier ou supprimer un projet | Ses projets | Tous les projets |
+| Créer, consulter, modifier ou supprimer une tâche | Dans ses projets | Dans tous les projets |
+| Affecter une tâche ou retirer son affectation | Non | Oui |
 
-Inscrivez un compte puis, localement :
+L'inscription publique attribue toujours le rôle `user`. L'affectation vérifie que l'utilisateur désigné existe.
+
+Les règles de modification et de suppression, ainsi que l'accès aux tâches, sont des choix d'implémentation : l'énoncé ne les détaille pas. L'affectation seule ne donne pas accès au projet privé d'un autre utilisateur.
+
+Les routes sont protégées par le middleware `authenticate`. Il vérifie la signature et l'expiration du JWT puis recharge l'utilisateur depuis MongoDB. Le rôle utilisé est celui de la base de données. Les contrôleurs appliquent les filtres de propriétaire et le contrôle d'affectation. Le middleware `authorize` est disponible et testé séparément ; les routes actuelles n'en ont pas besoin car elles acceptent les deux rôles et contrôlent les actions dans les contrôleurs.
+
+### Préparer un compte manager
+
+Créer d'abord le compte avec la route d'inscription, puis exécuter localement :
 
 ```powershell
 npm.cmd run manager -- LOGIN_DU_COMPTE
 ```
 
-Cette commande promeut un compte existant. Aucune route publique ne permet de changer de rôle. Le rôle est relu dans MongoDB à chaque requête authentifiée.
+La commande promeut un utilisateur existant. Aucune route publique ne permet de changer de rôle.
 
-## Routes
+## Routes de l'API
 
-Adresses relatives à http://localhost:3000 :
+Les routes ci-dessous sont relatives à `http://localhost:3000`.
 
-| Méthode | Route | Action |
+| Méthode | Route | Fonction |
 |---|---|---|
-| GET | /api/health | Vérifier que l'API répond |
+| GET | /api/health | État du serveur |
 | POST | /api/auth/register | Inscription |
-| POST | /api/auth/login | Connexion et token JWT |
-| GET | /api/auth/me | Profil connecté |
-| POST | /api/projects | Créer un projet |
-| GET | /api/projects | Lister les projets accessibles |
-| GET | /api/projects/:id | Consulter un projet |
-| PATCH | /api/projects/:id | Modifier un projet |
-| DELETE | /api/projects/:id | Supprimer le projet et ses tâches |
-| POST | /api/projects/:projectId/tasks | Créer une tâche |
-| GET | /api/projects/:projectId/tasks | Lister les tâches du projet |
-| GET | /api/projects/:projectId/tasks/:taskId | Consulter une tâche |
-| PATCH | /api/projects/:projectId/tasks/:taskId | Modifier ou affecter une tâche |
-| DELETE | /api/projects/:projectId/tasks/:taskId | Supprimer une tâche |
+| POST | /api/auth/login | Connexion et obtention du JWT |
+| GET | /api/auth/me | Profil de l'utilisateur connecté |
+| POST | /api/projects | Création d'un projet |
+| GET | /api/projects | Liste des projets accessibles |
+| GET | /api/projects/:id | Consultation d'un projet |
+| PATCH | /api/projects/:id | Modification d'un projet |
+| DELETE | /api/projects/:id | Suppression du projet et de ses tâches |
+| POST | /api/projects/:projectId/tasks | Création d'une tâche |
+| GET | /api/projects/:projectId/tasks | Liste des tâches du projet |
+| GET | /api/projects/:projectId/tasks/:taskId | Consultation d'une tâche |
+| PATCH | /api/projects/:projectId/tasks/:taskId | Modification ou affectation d'une tâche |
+| DELETE | /api/projects/:projectId/tasks/:taskId | Suppression d'une tâche |
 
-### Champs
+Seules les routes `/api/health`, `/api/auth/register` et `/api/auth/login` sont publiques. Pour les autres :
 
-**Inscription** : name, login, password. Login unique normalisé en minuscules. Mot de passe de 8 caractères minimum et 72 octets UTF-8 maximum, haché avec bcryptjs et jamais renvoyé. **Connexion** : login, password.
+```http
+Authorization: Bearer VOTRE_TOKEN
+```
 
-**Projet** : name obligatoire (120 caractères maximum), description facultative (2 000 maximum), status parmi in_progress, completed, paused. Owner et createdAt sont définis par le serveur.
+### Exemples de corps JSON
 
-**Tâche** : title obligatoire (120 maximum), description facultative (2 000 maximum), status parmi todo, doing, done ; deadline est une date ISO ou null ; assignedTo est un ID utilisateur existant ou null (manager uniquement). Le projet provient de l'URL et ne peut pas être changé.
+Inscription :
 
-### Recherche et tri
+```json
+{
+  "name": "Utilisateur de démonstration",
+  "login": "demo",
+  "password": "DemoLocal2026!"
+}
+```
 
-- Projets : search sur le nom et la description ; sortBy=name|status|createdAt ; order=asc|desc.
-- Tâches : search sur le titre et la description ; sortBy=title|status|deadline|createdAt ; order=asc|desc ; filtre status=todo|doing|done.
-- Par défaut : date de création décroissante. Recherche littérale insensible à la casse, 200 caractères maximum. Les permissions restent appliquées.
+Connexion :
+
+```json
+{
+  "login": "demo",
+  "password": "DemoLocal2026!"
+}
+```
+
+Création d'un projet :
+
+```json
+{
+  "name": "Préparation du rapport",
+  "description": "Organisation du travail du mini-projet",
+  "status": "in_progress"
+}
+```
+
+Création d'une tâche :
+
+```json
+{
+  "title": "Rédiger la présentation",
+  "status": "todo",
+  "deadline": "2026-12-01"
+}
+```
+
+Le propriétaire est déduit du compte connecté, et le projet de la tâche provient de l'URL. Pour affecter une tâche, un manager peut ajouter `assignedTo` avec l'identifiant d'un utilisateur existant. La valeur `null` retire l'affectation.
+
+## Recherche et tri
+
+| Ressource | Recherche | Champs de tri | Filtre supplémentaire |
+|---|---|---|---|
+| Projets | name et description | name, status, createdAt | — |
+| Tâches | title et description | title, status, deadline, createdAt | status |
+
+Les paramètres sont `search`, `sortBy` et `order=asc\|desc`. Par défaut, le tri se fait par date de création décroissante. La recherche est littérale, insensible à la casse et limitée à 200 caractères.
 
 ```text
-GET /api/projects?search=backend&sortBy=name&order=asc
-GET /api/projects/PROJECT_ID/tasks?search=rapport&status=todo&sortBy=deadline&order=asc
+GET /api/projects?search=rapport&sortBy=name&order=asc
+GET /api/projects/PROJECT_ID/tasks?status=todo&sortBy=deadline&order=asc
 ```
 
-## Exemple PowerShell
+Les mêmes permissions s'appliquent pendant les recherches.
 
-Gardez le serveur ouvert et utilisez un deuxième terminal :
+## Interface web — ajout facultatif
 
-```powershell
-$body = @{ name = 'Utilisateur demo'; login = 'demo'; password = 'DemoLocal2026!' } | ConvertTo-Json
-Invoke-RestMethod -Uri 'http://localhost:3000/api/auth/register' -Method Post -ContentType 'application/json' -Body $body
+Une interface de démonstration est accessible sur **http://localhost:3000/**. Elle utilise les routes de l'API pour l'inscription, la connexion et la gestion des projets et tâches.
 
-$body = @{ login = 'demo'; password = 'DemoLocal2026!' } | ConvertTo-Json
-$session = Invoke-RestMethod -Uri 'http://localhost:3000/api/auth/login' -Method Post -ContentType 'application/json' -Body $body
-$headers = @{ Authorization = "Bearer $($session.token)" }
+Sélectionner un projet pour afficher ses tâches. Le panneau « Réponse de l'API » montre les réponses JSON en masquant le token. L'affectation est affichée uniquement aux managers et utilise l'identifiant MongoDB de l'utilisateur.
 
-$body = @{ name = 'Projet demo' } | ConvertTo-Json
-$result = Invoke-RestMethod -Uri 'http://localhost:3000/api/projects' -Method Post -Headers $headers -ContentType 'application/json' -Body $body
-$projectId = $result.project._id
-
-$body = @{ title = 'Preparer le rapport'; status = 'todo'; deadline = '2026-12-01' } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:3000/api/projects/$projectId/tasks" -Method Post -Headers $headers -ContentType 'application/json' -Body $body
-
-Invoke-RestMethod -Uri "http://localhost:3000/api/projects/$projectId/tasks?sortBy=title&order=asc" -Headers $headers
-```
-
-Ces identifiants servent à une démonstration locale. Si vous recommencez, connectez-vous au compte existant ou choisissez un nouveau login.
-
-## Réponses
-
-200 : succès ; 201 : création ; 400 : données invalides ; 401 : authentification absente, invalide ou expirée ; 403 : permission insuffisante pour l'affectation ; 404 : ressource absente ou inaccessible ; 409 : login déjà utilisé ; 413 : corps trop volumineux ; 500 : erreur interne.
+Le token reste en mémoire : actualiser la page demande une nouvelle connexion. Aucun compte de démonstration n'est créé automatiquement lors du clonage. L'interface fonctionne sans dépendance web externe ; son ajout est enregistré dans un commit distinct du backend.
 
 ## Tests
 
-MongoDB doit être démarré et .env configuré. Aucun serveur Express préalablement lancé n'est nécessaire : les tests ouvrent un port temporaire.
+MongoDB doit être démarré et `.env` configuré.
 
 ```powershell
 npm.cmd test
 ```
 
-La suite vérifie le hachage, les JWT invalides et expirés, les rôles, l'isolation entre utilisateurs, les opérations sur projets et tâches, l'affectation, la recherche, le tri et la suppression des tâches associées. Elle supprime ses comptes et projets temporaires. Un arrêt brutal peut laisser des données de test ; les logins commencent par integration_.
+Les tests ouvrent un serveur sur un port temporaire et créent leurs propres comptes et projets. Ils vérifient :
 
-## Structure
+- Le hachage des mots de passe et l'authentification JWT.
+- Le refus des tokens absents, invalides et expirés.
+- L'isolation des projets entre utilisateurs et les droits du manager.
+- Les opérations sur les projets et les tâches.
+- L'affectation réservée au manager.
+- La recherche, le tri et les données invalides, dont les dates impossibles.
+- La suppression des tâches associées à un projet.
+- L'accès à l'interface sans exposer les fichiers de configuration.
+
+Les données temporaires sont supprimées à la fin des tests. Un arrêt brutal peut laisser des comptes dont le login commence par `integration_`.
+
+## Organisation du code
 
 ```text
+public/                  Interface de démonstration
 src/
-  app.js
-  server.js
-  config/database.js
-  models/
-  controllers/
-  middleware/
-  routes/
-scripts/promote-manager.js
-tests/
-.env.example
+  app.js                 Application Express et routes
+  server.js              Démarrage après connexion MongoDB
+  config/database.js     Connexion à la base
+  models/                Schémas User, Project et Task
+  controllers/           Traitements et permissions
+  middleware/            Authentification et autorisation
+  routes/                Déclaration des routes
+scripts/
+  promote-manager.js     Attribution locale du rôle manager
+tests/                   Tests automatisés
+.env.example             Exemple de configuration
 ```
 
-Les dépendances sont décrites dans package.json et verrouillées dans package-lock.json. .gitignore exclut .env, node_modules et les logs.
+## Erreurs et limites
 
-## Remise
+Les réponses utilisent notamment les codes `400` (données invalides), `401` (authentification), `403` (affectation non autorisée), `404` (ressource absente ou inaccessible) et `409` (login déjà utilisé). Les erreurs internes ne sont pas détaillées dans la réponse au client.
 
-Le dépôt GitHub contient le code et les commits de progression. Si le dépôt est privé, donner accès à l'enseignant. Déposer le lien sur Classroom avant l'heure limite : cette remise reste à effectuer par l'étudiante.
+La suppression d'un projet et de ses tâches s'effectue en deux opérations, sans transaction. Une panne entre les opérations peut laisser un projet sans ses tâches. Les listes ne sont pas paginées et la connexion ne dispose pas de limitation du nombre de tentatives. Ces points restent des améliorations possibles pour une utilisation au-delà du mini-projet.

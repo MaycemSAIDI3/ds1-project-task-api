@@ -138,9 +138,12 @@ test('API integration: authentication, project permissions and task lifecycle', 
       await request('GET', `/projects/${p2._id}/tasks/${task._id}`, undefined, tokens[1], 404);
       await request('PATCH', `${path}/${task._id}`, { status: 'doing' }, tokens[0], 200);
       await request('PATCH', `${path}/${task._id}`, { deadline: null, status: 'done' }, tokens[2], 200);
-      for (const body of [{ status: 'wrong' }, { title: ' ' }, { deadline: 'yesterday' }, { project: p2._id }, { title: 'x'.repeat(121) }]) {
+      for (const body of [{ status: 'wrong' }, { title: ' ' }, { deadline: 'yesterday' }, { deadline: '2026-02-31' }, { deadline: '2026-02-29' }, { deadline: '2026-12-01T24:00:00Z' }, { project: p2._id }, { title: 'x'.repeat(121) }]) {
         await request('PATCH', `${path}/${task._id}`, body, tokens[0], 400);
       }
+      await request('PATCH', `${path}/${task._id}`, { deadline: '2028-02-29' }, tokens[0], 200);
+      await request('PATCH', `${path}/${task._id}`, { deadline: '2026-12-01T10:30:00Z' }, tokens[0], 200);
+      await request('POST', path, { title: 'Impossible date', deadline: '2026-02-31' }, tokens[0], 400);
       await request('DELETE', `${path}/${task._id}`, undefined, tokens[1], 404);
       await request('DELETE', `${path}/${task._id}`, undefined, tokens[0], 200);
       await request('GET', `${path}/${task._id}`, undefined, tokens[0], 404);

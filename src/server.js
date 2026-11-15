@@ -21,7 +21,7 @@ async function startServer() {
       process.exit(1);
     });
   } catch (error) {
-        // Ken connexion MongoDB tefchel, nwa9fou el demarrage.
+    // Ken connexion MongoDB tefchel, nwa9fou el demarrage.
     console.error('Database connection failed:', error.message);
     process.exit(1);
   }
