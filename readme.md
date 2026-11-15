@@ -4,6 +4,12 @@ Mini-projet DS1 — ISIDS, réalisé individuellement par **Maycem Saidi**.
 
 Express.js, MongoDB/Mongoose, bcryptjs et JWT. Commentaires du code en derja tunisienne écrite en alphabet latin.
 
+## Interface de démonstration locale
+
+Après le démarrage du serveur, ouvrez **http://localhost:3000/** dans votre navigateur. L'interface permet de s'inscrire, se connecter, gérer les projets et les tâches, rechercher et trier. Sélectionnez une carte de projet pour afficher ses tâches. Le panneau « Réponse de l'API » affiche les réponses JSON en masquant les tokens.
+
+Le token reste uniquement en mémoire : actualiser la page demande une nouvelle connexion. L'interface fonctionne sans bibliothèque externe ni connexion internet. Elle utilise la même API et le même MongoDB local ; aucune publication sur internet n'est nécessaire. Les utilisateurs managers disposent d'un champ d'affectation par identifiant utilisateur. La promotion manager reste une commande locale, décrite ci-dessous.
+
 ## Installation
 
 Prérequis : Node.js 22 ou supérieur, npm et MongoDB Community Server démarré. Vérification finale réalisée avec Node.js 26.

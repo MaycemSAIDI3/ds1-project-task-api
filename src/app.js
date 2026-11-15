@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('node:path');
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const taskRoutes = require('./routes/taskRoutes');
@@ -8,6 +9,9 @@ const app = express();
 
 // Na9raw el donnees JSON mel requetes.
 app.use(express.json({ limit: '100kb' }));
+
+// Nesta3mlou ken public lel interface, moch dossier el projet.
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Route bech netthabtou elli el API te5dem.
 app.get('/api/health', (req, res) => {

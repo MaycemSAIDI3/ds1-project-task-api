@@ -21,6 +21,14 @@ test('API integration: authentication, project permissions and task lifecycle', 
     server = app.listen(0, '127.0.0.1');
     await new Promise(resolve => server.once('listening', resolve));
     const base = `http://127.0.0.1:${server.address().port}/api`;
+    await t.test('Local interface serves assets without exposing configuration or source', async () => {
+      const origin = base.slice(0, -4);
+      const home = await fetch(origin + '/');
+      assert.equal(home.status, 200);
+      assert.match(await home.text(), /Retrouvez vos projets/);
+      for (const path of ['/app.js', '/style.css']) assert.equal((await fetch(origin + path)).status, 200);
+      for (const path of ['/.env', '/package.json', '/src/app.js']) assert.equal((await fetch(origin + path)).status, 404);
+    });
     async function request(method, path, body, token, expected) {
       const response = await fetch(base + path, {
         method,
